@@ -144,7 +144,7 @@ export function StepReferences(props: {
             <li key={c.id} className={`overflow-hidden rounded-xl border ${sel ? "border-accent" : "border-line"} bg-panel`}>
               <button className="relative block w-full" onClick={() => toggle(c)} aria-pressed={Boolean(sel)}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumb(c.thumbUrl)} alt={c.title} loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                <img src={thumb(c.thumbUrl)} alt={c.title} loading="lazy" className="aspect-[4/3] w-full bg-panel-2 object-cover" onError={(e) => { e.currentTarget.style.opacity = "0"; }} />
                 <span className={`absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${sel ? "bg-accent text-accent-ink" : "bg-black/50 text-white"}`}>{sel ? "✓" : ""}</span>
                 {v && (
                   <span className="absolute right-2 top-2">

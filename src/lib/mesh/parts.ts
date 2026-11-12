@@ -129,20 +129,22 @@ export function estimateInterior(seg: Segmentation, opts: { seats: number; categ
   const dashZ = cabinZ1 - 0.05;
   boxes.push({ part: "interior", kind: "dash", min: [-innerW / 2, floor + 0.35, dashZ - 0.35], max: [innerW / 2, Math.min(seg.beltline + 0.05, floor + 0.65), dashZ], color: dash });
 
-  const perRow = isBus ? 4 : W > 2.1 ? 3 : 2;
-  const rows = Math.max(1, Math.ceil(opts.seats / perRow));
+  const rearPerRow = isBus ? 4 : W > 1.55 ? 3 : 2;
   const pitch = isBus ? 0.8 : 0.9;
   const usable = cabinZ1 - cabinZ0 - 0.45;
-  const nRows = Math.max(1, Math.min(rows, Math.floor(usable / pitch) + 1));
+  const maxRows = Math.max(1, Math.floor(usable / pitch) + 1);
   const seats: { x: number; z: number }[] = [];
-  for (let r = 0; r < nRows; r++) {
+  let remaining = Math.max(1, opts.seats);
+  for (let r = 0; r < maxRows && remaining > 0; r++) {
     const zFront = dashZ - 0.45 - r * pitch;
-    const count = r === 0 && !isBus ? 2 : perRow;
+    const count = Math.min(remaining, r === 0 && !isBus ? 2 : rearPerRow);
+    remaining -= count;
     for (let s = 0; s < count; s++) {
       let x: number;
       if (isBus) x = [-1, -0.55, 0.55, 1][s] * (innerW / 2 - seatW / 2);
+      else if (count === 1) x = innerW / 4; // posto guida a sinistra (+X)
       else if (count === 2) x = (s === 0 ? 1 : -1) * (innerW / 4);
-      else x = (s - 1) * (innerW / 3);
+      else x = (1 - s) * (innerW / 3);
       seats.push({ x, z: zFront - seatD / 2 });
       boxes.push({ part: "interior", kind: "seat", min: [x - seatW / 2, floor, zFront - seatD], max: [x + seatW / 2, floor + 0.3 + seatH, zFront], color: seatColor });
       boxes.push({ part: "interior", kind: "backrest", min: [x - seatW / 2, floor + 0.3, zFront - seatD - backT], max: [x + seatW / 2, floor + 0.3 + backH, zFront - seatD], color: seatColor });

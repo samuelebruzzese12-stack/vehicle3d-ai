@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { AppError } from "./errors";
+import { blenderPreprocess } from "./mesh/blender";
 import { readGlb, writeGlb } from "./mesh/io";
 import { addInteriorToDoc, applySegmentation, estimateInterior, interiorSeatPositions } from "./mesh/parts";
 import { buildSoup, normalize, optimize, rotate180 } from "./mesh/scene";
@@ -45,6 +46,19 @@ export async function runPipeline(glb: Uint8Array, opts: PipelineOptions): Promi
   const jobId = randomBytes(12).toString("hex");
   const v = opts.vehicle;
   const base = slugify(`${v.make}_${v.model}${v.year ? `_${v.year}` : ""}`);
+
+  let blender: Record<string, unknown> = { used: false };
+  try {
+    const b = await blenderPreprocess(glb, preset.targetPolycount);
+    if (b) {
+      log("Pulizia mesh con Blender (worker)");
+      glb = b.glb;
+      blender = { used: true, ...b.report };
+    }
+  } catch (e) {
+    // il worker è opzionale: in caso di errore si prosegue con la pipeline Node
+    blender = { used: false, error: (e as Error).message };
+  }
 
   log("Lettura e validazione del modello sorgente");
   let doc;
@@ -120,6 +134,7 @@ export async function runPipeline(glb: Uint8Array, opts: PipelineOptions): Promi
     quality: opts.quality,
     source: opts.source,
     durationMs: Date.now() - t0,
+    blender,
     normalization: norm,
     optimization: opt,
     segmentation: {

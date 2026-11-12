@@ -7,7 +7,7 @@ const tex = await sharp(readFileSync(texPath)).ensureAlpha().raw().toBuffer({ re
 const col = (u: number, v: number) => { const i = (v * tex.info.width + u) * 4; return [tex.data[i], tex.data[i + 1], tex.data[i + 2]]; };
 const cubes: { o: number[]; s: number[]; c: number[]; bone: string }[] = [];
 for (const b of geo.bones) for (const c of b.cubes ?? []) cubes.push({ o: c.origin, s: c.size, c: col(c.uv.north.uv[0], c.uv.north.uv[1]), bone: b.name });
-let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
 for (const c of cubes) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], c.o[k]); mx[k] = Math.max(mx[k], c.o[k] + c.s[k]); }
 const S = 4;
 // view: axes (u,v) and depth axis + direction (pick nearest)
