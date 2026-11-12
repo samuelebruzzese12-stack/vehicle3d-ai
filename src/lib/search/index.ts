@@ -81,7 +81,8 @@ export async function searchWikimedia(q: string, view: View, limit = 8): Promise
         id: id(ii.url),
         source: "wikimedia" as const,
         imageUrl: thumb,
-        thumbUrl: thumb.replace(/\/\d+px-/, "/400px-"),
+        // 500px è una delle dimensioni standard di Wikimedia (dimensioni arbitrarie restituiscono 400/429)
+        thumbUrl: thumb.replace(/\/\d+px-/, "/500px-"),
         pageUrl: ii.descriptionurl,
         title: pg.title.replace(/^File:/, ""),
         width: ii.width,

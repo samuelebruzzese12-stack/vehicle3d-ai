@@ -108,7 +108,7 @@ function quantize(rgba: number[], maxColors: number) {
 
   const run = (ids: number[], k: number, alpha: number) => {
     if (!ids.length) return;
-    let boxes: number[][] = [ids];
+    const boxes: number[][] = [ids];
     while (boxes.length < k) {
       let bi = -1, bestRange = 0, ch = 0;
       boxes.forEach((b, i) => {
