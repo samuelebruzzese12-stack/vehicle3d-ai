@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0b1020;
+  --panel: #131a2e;
+  --panel-2: #1a2340;
+  --line: #26304f;
+  --text: #e7ecf7;
+  --muted: #95a1bf;
+  --accent: #4ade80;
+  --accent-ink: #052e16;
+  --warn: #fbbf24;
+  --danger: #f87171;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html, body { background: var(--bg); color: var(--text); }
+body { font-family: var(--font-sans); -webkit-tap-highlight-color: transparent; }
+
+@utility btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 min-h-11 bg-accent text-accent-ink hover:brightness-110 active:brightness-95; }
+@utility btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 min-h-11 border border-line bg-panel-2 text-text hover:border-muted; }
+@utility card { @apply rounded-2xl border border-line bg-panel p-4; }
+@utility input { @apply w-full rounded-xl border border-line bg-panel-2 px-3 py-3 text-base text-text outline-none focus:border-accent min-h-11; }
+@utility label { @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted; }
