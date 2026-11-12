@@ -18,7 +18,9 @@ export interface VoxelGrid {
 }
 
 /** Voxelizzazione di superficie con campionamento baricentrico dei triangoli. */
-export function voxelize(soup: Soup, seg: Segmentation, voxelMeters: number, maxPalette: number, interior: Box[], interiorColorLabel = "interior"): VoxelGrid {
+export type ColorOverride = (label: string, x: number, y: number, z: number) => [number, number, number] | null;
+
+export function voxelize(soup: Soup, seg: Segmentation, voxelMeters: number, maxPalette: number, interior: Box[], interiorColorLabel = "interior", override?: ColorOverride): VoxelGrid {
   const labels = [...seg.labels, interiorColorLabel];
   const interiorLabel = labels.length - 1;
   const { width: W, height: H, minZ, maxZ } = seg.dims;
@@ -70,7 +72,13 @@ export function voxelize(soup: Soup, seg: Segmentation, voxelMeters: number, max
     for (const [l, n] of votes.get(k)!) if (n > bestN) { best = l; bestN = n; }
     part[k] = best;
     const isGlass = labels[best] === "glass";
-    rgba.push(sum[k * 4] / h, sum[k * 4 + 1] / h, sum[k * 4 + 2] / h, isGlass ? 0.55 : 1);
+    let r = sum[k * 4] / h, g = sum[k * 4 + 1] / h, b = sum[k * 4 + 2] / h;
+    if (override) {
+      const ix = k % nx, iy = Math.floor(k / nx) % ny, iz = Math.floor(k / (nx * ny));
+      const c = override(labels[best], origin[0] + (ix + 0.5) * s, origin[1] + (iy + 0.5) * s, origin[2] + (iz + 0.5) * s);
+      if (c) { r = c[0] / 255; g = c[1] / 255; b = c[2] / 255; }
+    }
+    rgba.push(r, g, b, isGlass ? 0.55 : 1);
     idxs.push(k);
   }
 

@@ -52,3 +52,31 @@ export async function syntheticCar(opts: { rearAt: "+z" | "-z"; scale?: number }
   for (const z of [1.35, -1.35]) for (const x of [0.78, -0.78]) cyl(`ruota_${x}_${z}`, x, 0.33, z, 0.33, 0.24, tyre);
   return new NodeIO().writeBinary(doc);
 }
+
+/** Carro armato sintetico: scafo, cingoli, torretta, cannone (verso +Z o -Z). Misure in metri. */
+export async function syntheticTank(opts: { barrelAt: "+z" | "-z"; anonymous?: boolean } = { barrelAt: "+z" }) {
+  let nodeIndex = 0;
+  const doc = new Document();
+  const buf = doc.createBuffer();
+  const scene = doc.createScene();
+  const mat = (c: [number, number, number, number]) => doc.createMaterial().setBaseColorFactor(c).setMetallicFactor(0.2);
+  const box = (name: string, min: number[], max: number[], m: ReturnType<typeof mat>) => {
+    const [x0, y0, z0] = min, [x1, y1, z1] = max;
+    const p = [x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1];
+    const i = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5];
+    const prim = doc.createPrimitive()
+      .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(new Float32Array(p)).setBuffer(buf))
+      .setIndices(doc.createAccessor().setType("SCALAR").setArray(new Uint32Array(i)).setBuffer(buf)).setMaterial(m);
+    const n = opts.anonymous ? `mesh_${nodeIndex++}` : name; // i modelli generati dall'AI non hanno nomi di parti
+    scene.addChild(doc.createNode(n).setMesh(doc.createMesh(n).addPrimitive(prim)));
+  };
+  const green = mat([0.2, 0.25, 0.12, 1]), dark = mat([0.05, 0.05, 0.05, 1]);
+  const d = opts.barrelAt === "+z" ? 1 : -1;
+  box("scafo", [-1.6, 0.5, -3.4], [1.6, 1.4, 3.4], green);
+  box("cingolo_sx", [1.2, 0, -3.5], [1.85, 0.9, 3.5], dark);
+  box("cingolo_dx", [-1.85, 0, -3.5], [-1.2, 0.9, 3.5], dark);
+  box("torretta", [-1.1, 1.4, -1.2], [1.1, 2.2, 1.4], green);
+  const [b0, b1] = d > 0 ? [1.4, 6.2] : [-6.2, -1.2];
+  box("cannone", [-0.1, 1.7, b0], [0.1, 1.9, b1], green);
+  return new NodeIO().writeBinary(doc);
+}

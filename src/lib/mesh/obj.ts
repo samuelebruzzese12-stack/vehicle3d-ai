@@ -7,7 +7,7 @@ function mtlName(m: Material | null, i: number) {
 }
 
 /** Esporta tutte le mesh (con trasformazioni dei nodi) in OBJ+MTL+texture, compresso in ZIP. */
-export async function exportObjZip(doc: Document, baseName: string) {
+export async function exportObjZip(doc: Document, baseName: string, extraFiles: Record<string, string> = {}) {
   const lines: string[] = [`# Vehicle3D AI – ${baseName}`, `mtllib ${baseName}.mtl`];
   const mtl: string[] = [`# Materiali Vehicle3D AI`];
   const zip = new JSZip();
@@ -82,6 +82,7 @@ export async function exportObjZip(doc: Document, baseName: string) {
   const obj = lines.join("\n") + "\n";
   zip.file(`${baseName}.obj`, obj);
   zip.file(`${baseName}.mtl`, mtl.join("\n"));
+  for (const [k, v] of Object.entries(extraFiles)) zip.file(k, v);
   const buf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE", compressionOptions: { level: 6 } });
   return { zip: buf, faces, vertices: verts, materials: mats.size, textures: texFiles.size, objText: obj };
 }

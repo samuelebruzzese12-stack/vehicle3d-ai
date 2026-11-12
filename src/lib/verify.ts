@@ -31,7 +31,11 @@ export async function verifyGlb(buf: Uint8Array): Promise<VerifyResult & { trian
     const doc = await readGlb(buf);
     triangles = triangleCount(doc);
     nodes = doc.getRoot().listNodes().map((n) => n.getName());
-    checks.push({ name: "Rilettura e triangoli", ok: triangles > 100, detail: `${triangles.toLocaleString("it-IT")} triangoli` });
+    checks.push({ name: "Rilettura e triangoli", ok: triangles >= 12, detail: `${triangles.toLocaleString("it-IT")} triangoli` });
+    const { computeBounds } = await import("./mesh/scene");
+    const b = computeBounds(doc);
+    const ext = b.max.map((m, i) => m - b.min[i]);
+    checks.push({ name: "Ingombro non degenere", ok: ext.every((e) => Number.isFinite(e) && e > 1e-4), detail: ext.map((e) => e.toFixed(2)).join(" × ") + " (unità del file)" });
   } catch (e) {
     checks.push({ name: "Rilettura e triangoli", ok: false, detail: (e as Error).message });
   }

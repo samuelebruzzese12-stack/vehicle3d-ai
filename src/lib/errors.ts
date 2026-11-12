@@ -10,6 +10,7 @@ export type ErrorCode =
   | "INVALID_IMAGE"
   | "INVALID_MODEL"
   | "VERIFICATION_FAILED"
+  | "LICENSE_BLOCKED"
   | "NOT_FOUND"
   | "INTERNAL";
 
@@ -25,6 +26,7 @@ const STATUS: Record<ErrorCode, number> = {
   INVALID_IMAGE: 422,
   INVALID_MODEL: 422,
   VERIFICATION_FAILED: 422,
+  LICENSE_BLOCKED: 451,
   NOT_FOUND: 404,
   INTERNAL: 500,
 };

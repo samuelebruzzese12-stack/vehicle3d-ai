@@ -12,6 +12,10 @@ const PART_NAMES_IT: Record<string, string> = {
   door_left: "Porta_sinistra",
   door_right: "Porta_destra",
   interior: "Abitacolo",
+  turret: "Torretta",
+  barrel: "Cannone",
+  track_l: "Cingolo_sinistro",
+  track_r: "Cingolo_destro",
 };
 
 export function partDisplayName(label: string) {

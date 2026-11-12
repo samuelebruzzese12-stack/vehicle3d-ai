@@ -23,6 +23,8 @@ export interface Segmentation {
   dims: { length: number; width: number; height: number; minZ: number; maxZ: number; maxY: number };
   stats: Record<string, number>;
   beltline: number;
+  /** solo veicoli cingolati */
+  tracked?: { hullFrontZ: number; barrelLength: number; turretY: number; trackY: number; deckY: number };
 }
 
 function hsv(r: number, g: number, b: number) {
@@ -58,6 +60,7 @@ function triArea(p: Float32Array, i: number) {
  * Segmentazione euristica in spazio canonico (Y su, lunghezza Z, anteriore +Z, centro X=0, suolo Y=0).
  */
 export function segment(soup: Soup, opts: { category?: string } = {}): Segmentation {
+  if (opts.category === "carro_armato") return segmentTracked(soup);
   const { pos, color, count } = soup;
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, maxY = 0;
   const cen = new Float32Array(count * 3);
@@ -163,4 +166,72 @@ export function segment(soup: Soup, opts: { category?: string } = {}): Segmentat
     stats[labels[lab]] = (stats[labels[lab]] ?? 0) + 1;
   }
   return { tri, labels, wheels, frontDetected, flipSuggested, dims: { length: L, width: W, height: H, minZ, maxZ, maxY }, stats, beltline };
+}
+
+/**
+ * Veicoli cingolati (carri armati): cingoli sinistro/destro, torretta, cannone, scafo.
+ * Spazio canonico: anteriore +Z, sinistra +X, suolo Y=0.
+ */
+export function segmentTracked(soup: Soup): Segmentation {
+  const { pos, count } = soup;
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, maxY = 0;
+  const cen = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const o = i * 9;
+    for (let c = 0; c < 3; c++) {
+      const x = pos[o + c * 3], y = pos[o + c * 3 + 1], z = pos[o + c * 3 + 2];
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (z < minZ) minZ = z; if (z > maxZ) maxZ = z; if (y > maxY) maxY = y;
+    }
+    for (let k = 0; k < 3; k++) cen[i * 3 + k] = (pos[o + k] + pos[o + 3 + k] + pos[o + 6 + k]) / 3;
+  }
+  const H = maxY, halfW = (maxX - minX) / 2;
+  // profilo dell'altezza lungo Z: il cannone sporge davanti allo scafo a quota elevata e sottile
+  const bins = 60, top = new Float32Array(bins), low = new Float32Array(bins).fill(Infinity), wid = new Float32Array(bins);
+  const zb = (z: number) => Math.min(bins - 1, Math.max(0, Math.floor(((z - minZ) / (maxZ - minZ)) * bins)));
+  // ogni triangolo contribuisce a tutte le sezioni che attraversa (robusto anche per mesh low-poly)
+  for (let i = 0; i < count; i++) {
+    const o = i * 9;
+    const zs = [pos[o + 2], pos[o + 5], pos[o + 8]], ys = [pos[o + 1], pos[o + 4], pos[o + 7]], xs = [pos[o], pos[o + 3], pos[o + 6]];
+    const b0 = zb(Math.min(...zs)), b1 = zb(Math.max(...zs));
+    const ty = Math.max(...ys), ly = Math.min(...ys), wx = Math.max(...xs.map(Math.abs));
+    for (let b = b0; b <= b1; b++) {
+      top[b] = Math.max(top[b], ty);
+      low[b] = Math.min(low[b], ly);
+      wid[b] = Math.max(wid[b], wx);
+    }
+  }
+  // scafo: bin con larghezza > 60% della larghezza massima; il cannone è oltre l'estremità anteriore dello scafo
+  let hullFrontBin = bins - 1;
+  while (hullFrontBin > 0 && wid[hullFrontBin] < 0.6 * halfW) hullFrontBin--;
+  const hullFrontZ = minZ + ((hullFrontBin + 1) / bins) * (maxZ - minZ);
+  const barrelLen = maxZ - hullFrontZ;
+  let hullRearBin = 0;
+  while (hullRearBin < bins - 1 && wid[hullRearBin] < 0.6 * halfW) hullRearBin++;
+  const rearProtrusion = minZ + (hullRearBin / bins) * (maxZ - minZ) - minZ;
+  // quota della torretta: sopra il ponte dello scafo (mediana dell'altezza massima per bin dello scafo, scontata)
+  const hullTops = Array.from(top.slice(0, hullFrontBin + 1)).sort((a, b) => a - b);
+  const deck = hullTops[Math.floor(hullTops.length * 0.35)] ?? H * 0.6;
+  const turretY = Math.min(deck + 0.05 * H, H * 0.75);
+  const trackY = Math.min(0.45 * H, deck * 0.8);
+  const barrelY = barrelLen > 0.3 ? (top[bins - 1] + low[bins - 1]) / 2 : turretY;
+  const labels = ["body", "turret", "barrel", "track_l", "track_r", "glass", "light_front", "light_rear"];
+  const tri = new Uint16Array(count);
+  const stats: Record<string, number> = {};
+  for (let i = 0; i < count; i++) {
+    const x = cen[i * 3], y = cen[i * 3 + 1], z = cen[i * 3 + 2];
+    let lab = 0;
+    if (barrelLen > 0.3 && z > hullFrontZ && Math.abs(x) < 0.3 * halfW && Math.abs(y - barrelY) < 0.12 * H) lab = 2;
+    else if (y < trackY && Math.abs(x) > 0.55 * halfW) lab = x > 0 ? 3 : 4;
+    else if (y > turretY && Math.abs(x) < 0.85 * halfW) lab = 1;
+    tri[i] = lab;
+    stats[labels[lab]] = (stats[labels[lab]] ?? 0) + 1;
+  }
+  return {
+    tri, labels, wheels: [], frontDetected: barrelLen > 0.3 || rearProtrusion > 0.3 ? "lights" : "assumed",
+    // per i carri armati il cannone indica il fronte: se sporge dietro, il modello va girato
+    flipSuggested: rearProtrusion > 0.3 && rearProtrusion > barrelLen * 1.5,
+    dims: { length: maxZ - minZ, width: maxX - minX, height: H, minZ, maxZ, maxY },
+    stats, beltline: turretY,
+    tracked: { hullFrontZ, barrelLength: barrelLen, turretY, trackY, deckY: deck },
+  } as Segmentation;
 }
