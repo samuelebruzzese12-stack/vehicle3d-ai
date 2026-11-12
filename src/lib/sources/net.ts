@@ -46,7 +46,10 @@ export async function getJson<T = Record<string, unknown>>(url: string, opts: Ge
       await sleep(Math.min(Math.max(Number.isFinite(ra) && ra > 0 ? ra * 1000 : 0, 1500 * 2 ** attempt), 15000));
       continue;
     }
-    if (res.status === 429) throw new AppError("PROVIDER_RATE_LIMIT", `${opts.source}: limite di richieste del servizio gratuito raggiunto. Riprova tra qualche minuto.`);
+    if (res.status === 429) {
+      const ra = Number(res.headers.get("retry-after"));
+      throw new AppError("PROVIDER_RATE_LIMIT", `${opts.source}: limite di richieste del servizio gratuito raggiunto${Number.isFinite(ra) && ra > 30 ? ` (attendere ${Math.ceil(ra / 60)} minuti)` : ". Riprova tra qualche minuto"}.`);
+    }
     if (res.status === 401 || res.status === 403) throw new AppError("NOT_CONFIGURED", `${opts.source}: accesso negato (${res.status}).`);
     if (res.status === 404) throw new AppError("NOT_FOUND", `${opts.source}: risorsa non trovata.`);
     if (!res.ok) throw new AppError("PROVIDER_ERROR", `${opts.source}: errore ${res.status}.`);

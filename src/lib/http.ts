@@ -65,7 +65,11 @@ export async function fetchLimited(raw: string, opts: FetchLimitedOptions, attem
       await new Promise((r) => setTimeout(r, Math.min(Math.max(Number.isFinite(ra) ? ra * 1000 : 0, 1500 * 2 ** attempt), 15000)));
       return fetchLimited(raw, opts, attempt + 1);
     }
-    if (res.status === 429) throw new AppError("PROVIDER_RATE_LIMIT", "Limite di download del servizio raggiunto. Riprova tra qualche minuto.");
+    if (res.status === 429) {
+      const ra = Number(res.headers.get("retry-after"));
+      const host = new URL(raw).hostname;
+      throw new AppError("PROVIDER_RATE_LIMIT", `Limite di download del servizio gratuito ${host} raggiunto${Number.isFinite(ra) && ra > 0 ? `: il servizio chiede di attendere ${Math.ceil(ra / 60)} minuti` : ". Riprova tra qualche minuto"}.`);
+    }
     if (!res.ok) throw new AppError("PROVIDER_ERROR", `Download fallito (${res.status}).`);
     const len = Number(res.headers.get("content-length") ?? 0);
     if (len > opts.maxBytes) throw new AppError("BAD_REQUEST", `File troppo grande (${Math.round(len / 1e6)} MB).`);
