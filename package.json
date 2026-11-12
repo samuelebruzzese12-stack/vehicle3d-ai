@@ -16,6 +16,7 @@
     "@gltf-transform/extensions": "^4.5.1",
     "@gltf-transform/functions": "^4.5.1",
     "@gradio/client": "^2.7.2",
+    "@huggingface/transformers": "^4.3.2",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@vercel/blob": "^2.9.0",

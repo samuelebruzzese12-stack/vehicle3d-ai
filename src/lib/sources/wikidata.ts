@@ -200,3 +200,22 @@ export function toVehicleInput(v: WikiVehicle): VehicleInput {
     seats: v.category === "carro_armato" || v.category === "blindato" ? v.crew : undefined,
   };
 }
+
+/**
+ * Elenco di modelli (etichette) per il riconoscimento da foto:
+ * - auto/camion/ecc.: modelli con brand = marca indicata
+ * - carri armati: sottoclassi/istanze di "carro armato da combattimento" e "modello di carro armato"
+ * Ordinati per numero di voci Wikipedia (notorietà). SPARQL gratuito, con limiti di frequenza.
+ */
+export async function vehicleModels(opts: { make?: string; category: VehicleInput["category"] }, limit = 150): Promise<{ qid: string; label: string }[]> {
+  const esc = (s: string) => s.replace(/["\\]/g, "");
+  const query = opts.category === "carro_armato"
+    ? `SELECT ?item ?itemLabel ?sl WHERE { { ?item wdt:P279 wd:Q920182 } UNION { ?item wdt:P31 wd:Q100710213 } ?item wikibase:sitelinks ?sl . SERVICE wikibase:label { bd:serviceParam wikibase:language "en,it". } } ORDER BY DESC(?sl) LIMIT ${limit}`
+    : `SELECT ?item ?itemLabel ?sl WHERE { ?brand rdfs:label "${esc(opts.make ?? "")}"@en . ?item wdt:P1716 ?brand ; wikibase:sitelinks ?sl . SERVICE wikibase:label { bd:serviceParam wikibase:language "en,it". } } ORDER BY DESC(?sl) LIMIT ${limit}`;
+  const r = await getJson<{ results: { bindings: { item: { value: string }; itemLabel: { value: string } }[] } }>(
+    `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { source: "Wikidata SPARQL", headers: { Accept: "application/sparql-results+json" }, timeoutMs: 30000 });
+  const seen = new Set<string>();
+  return r.results.bindings
+    .map((b) => ({ qid: b.item.value.split("/").pop()!, label: b.itemLabel.value }))
+    .filter((x) => !/^Q\d+$/.test(x.label) && !seen.has(x.label) && (seen.add(x.label), true));
+}

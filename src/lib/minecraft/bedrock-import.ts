@@ -135,7 +135,8 @@ export async function bedrockToDocument(zip: JSZip, files: string[], geoFiles: s
       for (const [fname, n, vs] of quads) {
         const r = faces[fname];
         if (!r) continue;
-        let [u, v, w, h] = r;
+        let [u, w] = [r[0], r[2]];
+        const [, v, , h] = r;
         if (mirror && Array.isArray(c.uv)) { u += w; w = -w; }
         const uvq = [[u, v], [u + w, v], [u + w, v + h], [u, v + h]];
         const base0 = pos.length / 3;

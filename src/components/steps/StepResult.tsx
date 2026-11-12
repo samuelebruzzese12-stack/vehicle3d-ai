@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { formatBytes } from "@/lib/client/api";
 import type { PipelineResult } from "@/lib/client/state";
-import { Alert, Badge, Section } from "../ui";
+import { Badge, Section } from "../ui";
 
 const Viewer3D = dynamic(() => import("../Viewer3D"), { ssr: false, loading: () => <div className="h-80 animate-pulse rounded-2xl bg-panel" /> });
 const MinecraftPreview = dynamic(() => import("../MinecraftPreview"), { ssr: false, loading: () => <div className="h-80 animate-pulse rounded-2xl bg-panel" /> });
@@ -14,6 +14,10 @@ const LABELS: Record<string, { title: string; desc: string }> = {
   obj: { title: "OBJ (+MTL, texture)", desc: "Archivio ZIP compatibile con Blender e altri software." },
 };
 
+interface PartRow { part: string; status: string; note?: string }
+interface PathInfo { engine: string; label: string; attempts: { label: string; ok: boolean; message: string }[] }
+interface Lic { notes: string[]; credits: { title: string; author?: string; sourceName: string; sourceUrl?: string; license: { label: string }; usage: string }[]; inheritedLicense?: { label: string }; nonCommercialOnly: boolean }
+
 export function StepResult({ result, onRestart, onBack }: { result: PipelineResult; onRestart: () => void; onBack: () => void }) {
   const [tab, setTab] = useState<"glb" | "mc">("glb");
   const f = (k: string) => result.files.find((x) => x.kind === k);
@@ -23,7 +27,11 @@ export function StepResult({ result, onRestart, onBack }: { result: PipelineResu
     optimization: { trianglesAfter: number };
     segmentation: { frontDetection: string; autoFlipped: boolean; wheels: unknown[]; glbParts: string[] };
     interior: { seats: number };
-    minecraft: { identifier: string; cubes: number; voxelPx: number; bones: string[]; palette: number };
+    minecraft: { identifier: string; cubes: number; voxelPx: number | null; bones: string[]; palette: number | null; reusedGeometry: boolean };
+    parts: PartRow[];
+    path?: PathInfo;
+    licenses: Lic;
+    materials: { notes: string[] };
   };
   const d = r.normalization.dimensions;
   return (
@@ -38,14 +46,33 @@ export function StepResult({ result, onRestart, onBack }: { result: PipelineResu
 
       <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <Stat k="Dimensioni" v={`${d.length.toFixed(2)} × ${d.width.toFixed(2)} × ${d.height.toFixed(2)} m`} />
-        <Stat k="Triangoli" v={r.optimization.trianglesAfter.toLocaleString("it-IT")} />
-        <Stat k="Cubi Minecraft" v={`${r.minecraft.cubes.toLocaleString("it-IT")} (voxel ${r.minecraft.voxelPx}px)`} />
-        <Stat k="Ruote / posti" v={`${r.segmentation.wheels.length} / ${r.interior.seats}`} />
+        <Stat k="Percorso" v={r.path?.label ?? "—"} />
+        <Stat k="Cubi Minecraft" v={`${r.minecraft.cubes.toLocaleString("it-IT")}${r.minecraft.reusedGeometry ? " (addon originale)" : ` (voxel ${r.minecraft.voxelPx}px)`}`} />
+        <Stat k="Posti guidabili" v={String(r.interior.seats)} />
       </div>
-      <Alert kind="info">
-        Componenti separati con euristica (stima): {r.segmentation.glbParts.join(", ")}. Abitacolo ricostruito proceduralmente.
-        Fronte {r.segmentation.frontDetection === "lights" ? "rilevato dai fanali" : "assunto dal modello generato"}{r.segmentation.autoFlipped ? " (ruotato di 180°)" : ""}.
-      </Alert>
+      {r.path && r.path.attempts.length > 0 && (
+        <details className="card text-xs">
+          <summary className="cursor-pointer text-sm font-semibold">Percorso seguito ({r.path.attempts.length} passaggi)</summary>
+          <ul className="mt-2 space-y-1">{r.path.attempts.map((a, i) => <li key={i} className={a.ok ? "text-accent" : "text-muted"}>{a.ok ? "✓" : "✗"} {a.label}: {a.message}</li>)}</ul>
+        </details>
+      )}
+      <div className="card text-sm">
+        <p className="mb-2 font-semibold">Parti del veicolo: cosa è ricostruito e cosa è stimato</p>
+        <table className="w-full text-xs">
+          <tbody>{r.parts.map((p) => (
+            <tr key={p.part} className="border-t border-line"><td className="py-1 pr-2">{p.part}</td><td className={`py-1 ${p.status === "dal modello sorgente" ? "text-accent" : p.status === "non presente" ? "text-muted" : "text-warn"}`}>{p.status}{p.note ? ` – ${p.note}` : ""}</td></tr>
+          ))}</tbody>
+        </table>
+        <p className="mt-2 text-xs text-muted">Gli interni non sono mai dichiarati completi: ciò che è &quot;stimato&quot; è ricostruito dalle proporzioni, non da dati reali. Fronte {r.segmentation.frontDetection === "lights" ? "rilevato automaticamente" : "assunto dal modello"}{r.segmentation.autoFlipped ? " (ruotato di 180°)" : ""}.</p>
+        {r.materials.notes.length > 0 && <p className="mt-1 text-xs text-muted">{r.materials.notes.join(" ")}</p>}
+      </div>
+      <details className="card text-sm" open={r.licenses.credits.length > 0}>
+        <summary className="cursor-pointer font-semibold">Licenze e crediti ({r.licenses.credits.length})</summary>
+        <ul className="mt-2 space-y-1 text-xs">{r.licenses.credits.map((c, i) => <li key={i}>{c.title}{c.author ? ` – ${c.author}` : ""} · {c.sourceUrl ? <a className="underline" href={c.sourceUrl} target="_blank" rel="noreferrer">{c.sourceName}</a> : c.sourceName} · {c.license.label} · {c.usage}</li>)}</ul>
+        {r.licenses.inheritedLicense && <p className="mt-2 text-xs text-warn">Il risultato va distribuito con licenza {r.licenses.inheritedLicense.label} (share-alike).</p>}
+        {r.licenses.nonCommercialOnly && <p className="mt-1 text-xs text-warn">Solo uso non commerciale.</p>}
+        <p className="mt-1 text-xs text-muted">I crediti sono inclusi in CREDITS.txt dentro il .mcaddon e lo ZIP OBJ, e nei metadati del GLB.</p>
+      </details>
 
       <ul className="space-y-3">
         {(["mcaddon", "glb", "obj"] as const).map((k) => {
