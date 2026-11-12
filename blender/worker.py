@@ -19,11 +19,9 @@ SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "process_vehic
 BLENDER = os.environ.get("BLENDER_BIN")  # se impostato usa il binario Blender, altrimenti il modulo bpy di questo Python
 
 
-def run(inp, out, target):
-    if BLENDER:
-        cmd = [BLENDER, "-b", "--factory-startup", "-P", SCRIPT, "--", inp, out, "--target-tris", str(target)]
-    else:
-        cmd = [sys.executable, SCRIPT, inp, out, "--target-tris", str(target)]
+def run(inp, out, target, extra=()):
+    args = [inp, out, "--target-tris", str(target), *extra]
+    cmd = [BLENDER, "-b", "--factory-startup", "-P", SCRIPT, "--", *args] if BLENDER else [sys.executable, SCRIPT, *args]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     lines = [l for l in p.stdout.strip().splitlines() if l.startswith("{")]
     if p.returncode != 0 or not lines:
@@ -48,7 +46,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if url.path != "/process":
+        if url.path not in ("/process", "/convert"):
             return self._json(404, {"error": "not found"})
         if not TOKEN or self.headers.get("Authorization") != f"Bearer {TOKEN}":
             return self._json(401, {"error": "unauthorized"})
@@ -56,16 +54,27 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0 or length > MAX_BYTES:
             return self._json(413, {"error": "file mancante o troppo grande"})
         data = self.rfile.read(length)
-        if data[:4] != b"glTF":
+        q = parse_qs(url.query)
+        fmt = q.get("format", ["glb"])[0]
+        if fmt not in ("glb", "fbx", "blend", "obj", "stl"):
+            return self._json(400, {"error": "formato non supportato"})
+        if fmt == "glb" and data[:4] != b"glTF":
             return self._json(422, {"error": "non è un GLB"})
-        target = int(parse_qs(url.query).get("target_tris", ["300000"])[0])
-        target = max(1000, min(target, 2_000_000))
+        target = max(1000, min(int(q.get("target_tris", ["300000"])[0]), 2_000_000))
+        extra = []
+        if url.path == "/convert":
+            extra.append("--convert-only")
+        if q.get("separate", ["0"])[0] == "1":
+            extra.append("--separate-loose")
+        bake = int(q.get("bake", ["0"])[0])
+        if bake in (512, 1024, 2048, 4096):
+            extra += ["--bake", str(bake)]
         with tempfile.TemporaryDirectory() as d:
-            inp, out = os.path.join(d, "in.glb"), os.path.join(d, "out.glb")
+            inp, out = os.path.join(d, f"in.{fmt}"), os.path.join(d, "out.glb")
             with open(inp, "wb") as f:
                 f.write(data)
             try:
-                report = run(inp, out, target)
+                report = run(inp, out, target, extra)
             except Exception as e:  # noqa: BLE001
                 return self._json(500, {"error": str(e)})
             with open(out, "rb") as f:

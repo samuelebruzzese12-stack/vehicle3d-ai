@@ -194,6 +194,10 @@ export function sampleTexture(t: DecodedTexture, u: number, v: number, out: numb
   out[0] = t.data[i] / 255; out[1] = t.data[i + 1] / 255; out[2] = t.data[i + 2] / 255; out[3] = t.data[i + 3] / 255;
 }
 
+export function linearToSrgb(c: number) {
+  return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+}
+
 /** Triangoli "piatti" in spazio mondo con informazioni colore, per segmentazione e voxelizzazione. */
 export interface Soup {
   /** 9 float per triangolo */
@@ -232,7 +236,9 @@ export async function buildSoup(doc: Document): Promise<Soup> {
   for (let pi = 0; pi < prims.length; pi++) {
     const p = prims[pi];
     const mat = p.getMaterial();
-    factorOf.push(mat ? mat.getBaseColorFactor() : [0.7, 0.7, 0.7, 1]);
+    // i fattori glTF sono lineari, le texture sono sRGB: la palette Minecraft è sRGB
+    const f = mat ? mat.getBaseColorFactor() : [0.5, 0.5, 0.5, 1];
+    factorOf.push([linearToSrgb(f[0]), linearToSrgb(f[1]), linearToSrgb(f[2]), f[3]]);
     const tex = mat?.getBaseColorTexture();
     const texInfo = mat?.getBaseColorTextureInfo();
     texOf.push(tex ? await decodeTexture(tex) : null);
