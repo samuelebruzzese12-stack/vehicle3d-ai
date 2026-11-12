@@ -6,5 +6,5 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "src"), "server-only": path.resolve(__dirname, "node_modules/server-only/empty.js") },
     conditions: ["react-server"],
   },
-  test: { environment: "node", testTimeout: 120_000, include: ["tests/**/*.test.ts"] },
+  test: { environment: "node", testTimeout: 120_000, include: ["tests/*.test.ts"] },
 });

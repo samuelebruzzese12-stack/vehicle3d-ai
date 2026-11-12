@@ -16,7 +16,10 @@ export const VIEW_LABELS: Record<View, string> = {
   other: "Altro",
 };
 
-export const CATEGORIES = ["auto", "suv", "furgone", "camion", "autobus", "moto", "pickup", "trattore", "altro"] as const;
+export const CATEGORIES = ["auto", "suv", "furgone", "camion", "autobus", "moto", "pickup", "trattore", "carro_armato", "blindato", "altro"] as const;
+
+/** veicoli cingolati / militari: niente porte e sedili passeggeri, torretta e cannone */
+export const TRACKED = new Set(["carro_armato"]);
 
 export const VehicleIdSchema = z.object({
   is_vehicle: z.boolean(),
@@ -56,6 +59,8 @@ export interface ReferenceCandidate {
   width?: number;
   height?: number;
   license?: string;
+  /** identificativo normalizzato (vedi lib/licenses) */
+  licenseId?: string;
   author?: string;
   queryView: View;
 }

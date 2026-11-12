@@ -1,8 +1,8 @@
 import "server-only";
 
 /**
- * Configurazione lato server. Le chiavi API vengono lette SOLO qui e non
- * vengono mai inviate al browser: nessuna variabile usa il prefisso NEXT_PUBLIC_.
+ * Configurazione lato server. Architettura FREE-FIRST: nessuna variabile è obbligatoria e
+ * nessuna attiva servizi a pagamento. Le chiavi (tutte di piani gratuiti) restano sul server.
  */
 function read(name: string): string | undefined {
   const v = process.env[name];
@@ -10,37 +10,27 @@ function read(name: string): string | undefined {
 }
 
 export const env = {
-  anthropicKey: () => read("ANTHROPIC_API_KEY"),
-  anthropicModel: () => read("ANTHROPIC_MODEL") ?? "claude-opus-5-5",
-  meshyKey: () => read("MESHY_API_KEY"),
-  falKey: () => read("FAL_KEY"),
-  braveKey: () => read("BRAVE_SEARCH_API_KEY"),
+  /** token API gratuito di un account Sketchfab: serve solo per SCARICARE (la ricerca è libera) */
+  sketchfabToken: () => read("SKETCHFAB_API_TOKEN"),
+  /** token GitHub gratuito: alza i limiti di ricerca (60→5000 richieste/ora) */
+  githubToken: () => read("GITHUB_TOKEN"),
+  /** token Hugging Face gratuito: quota ZeroGPU più alta sugli Spaces */
+  hfToken: () => read("HF_TOKEN"),
+  /** Spaces Hugging Face ammessi per la generazione AI (separati da virgola) */
+  aiSpaces: () => read("AI_SPACES"),
+  /** worker AI self-hosted (TRELLIS/TripoSR su GPU propria) */
+  aiWorkerUrl: () => read("AI_WORKER_URL"),
+  aiWorkerToken: () => read("AI_WORKER_TOKEN"),
+  /** Google Programmable Search: piano gratuito 100 query/giorno */
   googleKey: () => read("GOOGLE_CSE_API_KEY"),
   googleCx: () => read("GOOGLE_CSE_CX"),
+  /** Brave Search: piano gratuito */
+  braveKey: () => read("BRAVE_SEARCH_API_KEY"),
   blobToken: () => read("BLOB_READ_WRITE_TOKEN"),
   blenderWorkerUrl: () => read("BLENDER_WORKER_URL"),
   blenderWorkerToken: () => read("BLENDER_WORKER_TOKEN"),
   accessCode: () => read("APP_ACCESS_CODE"),
-  defaultProvider: () => (read("DEFAULT_3D_PROVIDER") ?? "meshy") as "meshy" | "fal",
+  /** abilita modelli con licenze territoriali (es. Hunyuan3D esclude UE/UK/Corea del Sud) */
+  allowRegionRestrictedModels: () => read("ALLOW_REGION_RESTRICTED_MODELS") === "true",
   isVercel: () => process.env.VERCEL === "1",
 };
-
-export function configuredFeatures() {
-  return {
-    identification: Boolean(env.anthropicKey()),
-    referenceVerificationAI: Boolean(env.anthropicKey()),
-    search: {
-      wikimedia: true,
-      brave: Boolean(env.braveKey()),
-      google: Boolean(env.googleKey() && env.googleCx()),
-    },
-    providers: {
-      meshy: Boolean(env.meshyKey()),
-      fal: Boolean(env.falKey()),
-    },
-    defaultProvider: env.defaultProvider(),
-    storage: env.blobToken() ? "vercel-blob" : env.isVercel() ? "missing" : "local",
-    blenderWorker: Boolean(env.blenderWorkerUrl()),
-    accessCodeRequired: Boolean(env.accessCode()),
-  };
-}

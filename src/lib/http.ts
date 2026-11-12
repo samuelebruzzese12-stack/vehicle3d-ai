@@ -48,16 +48,24 @@ export interface FetchLimitedOptions {
 }
 
 /** Scarica una risorsa con limite di dimensione e timeout. */
-export async function fetchLimited(raw: string, opts: FetchLimitedOptions) {
-  if (opts.checkPublic !== false) await assertPublicUrl(raw);
+export async function fetchLimited(raw: string, opts: FetchLimitedOptions, attempt = 0): Promise<{ buffer: Buffer; contentType: string }> {
+  if (opts.checkPublic !== false && attempt === 0) await assertPublicUrl(raw);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs);
   try {
     const res = await fetch(raw, {
       signal: ctrl.signal,
       redirect: "follow",
-      headers: { "User-Agent": "Vehicle3D-AI/1.0 (reference fetcher)", ...opts.headers },
+      headers: { "User-Agent": "Vehicle3D-AI/2.0 (https://github.com/samuelebruzzese12-stack/vehicle3d-ai)", ...opts.headers },
     });
+    if ((res.status === 429 || res.status === 503) && attempt < 3) {
+      // limite del servizio gratuito: attende come richiesto (Retry-After) e riprova
+      const ra = Number(res.headers.get("retry-after"));
+      clearTimeout(t);
+      await new Promise((r) => setTimeout(r, Math.min(Math.max(Number.isFinite(ra) ? ra * 1000 : 0, 1500 * 2 ** attempt), 15000)));
+      return fetchLimited(raw, opts, attempt + 1);
+    }
+    if (res.status === 429) throw new AppError("PROVIDER_RATE_LIMIT", "Limite di download del servizio raggiunto. Riprova tra qualche minuto.");
     if (!res.ok) throw new AppError("PROVIDER_ERROR", `Download fallito (${res.status}).`);
     const len = Number(res.headers.get("content-length") ?? 0);
     if (len > opts.maxBytes) throw new AppError("BAD_REQUEST", `File troppo grande (${Math.round(len / 1e6)} MB).`);
