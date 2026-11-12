@@ -186,7 +186,7 @@ export function addInteriorToDoc(doc: Document, boxes: Box[]) {
   for (const [k, list] of byColor) {
     const [r, g, bl] = k.split(",").map(Number);
     const mat = doc.createMaterial("Abitacolo_stimato").setBaseColorFactor([(r / 255) ** 2.2, (g / 255) ** 2.2, (bl / 255) ** 2.2, 1]).setRoughnessFactor(0.85).setMetallicFactor(0);
-    const pos: number[] = [], nor: number[] = [], idx: number[] = [];
+    const pos: number[] = [], nor: number[] = [], idx: number[] = [], uv: number[] = [];
     for (const b of list) {
       const [x0, y0, z0] = b.min, [x1, y1, z1] = b.max;
       const faces: [number[], number[][]][] = [
@@ -199,13 +199,16 @@ export function addInteriorToDoc(doc: Document, boxes: Box[]) {
       ];
       for (const [n, vs] of faces) {
         const base = pos.length / 3;
-        for (const v of vs) { pos.push(...v); nor.push(...n); }
+        // UV planari per faccia: una ripetizione della texture ogni 0,5 m
+        const ax = Math.abs(n[0]) ? [2, 1] : Math.abs(n[1]) ? [0, 2] : [0, 1];
+        for (const v of vs) { pos.push(...v); nor.push(...n); uv.push(v[ax[0]] / 0.5, v[ax[1]] / 0.5); }
         idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
       }
     }
     const prim = doc.createPrimitive()
       .setAttribute("POSITION", doc.createAccessor().setType("VEC3").setArray(new Float32Array(pos)).setBuffer(buffer))
       .setAttribute("NORMAL", doc.createAccessor().setType("VEC3").setArray(new Float32Array(nor)).setBuffer(buffer))
+      .setAttribute("TEXCOORD_0", doc.createAccessor().setType("VEC2").setArray(new Float32Array(uv)).setBuffer(buffer))
       .setIndices(doc.createAccessor().setType("SCALAR").setArray(new Uint32Array(idx)).setBuffer(buffer))
       .setMaterial(mat);
     mesh.addPrimitive(prim);

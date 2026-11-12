@@ -72,11 +72,11 @@ export function StepBuild({ state, status, update, onBack, onDone }: { state: Wi
         <legend className="label">Livrea e materiali</legend>
         <div className="flex flex-wrap gap-2 text-xs">
           <button className={`rounded-full border px-3 py-1.5 ${state.livery.mode === "originale" ? "border-accent" : "border-line"}`} onClick={() => update({ livery: { mode: "originale" } })}>Originale del modello</button>
-          <label className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${state.livery.mode === "vernice" ? "border-accent" : "border-line"}`}>
-            Vernice
+          <span className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${state.livery.mode === "vernice" ? "border-accent" : "border-line"}`}>
+            <button onClick={() => update({ livery: { mode: "vernice", color: state.livery.color ?? [150, 20, 24] } })}>Vernice</button>
             <input type="color" aria-label="Colore vernice" value={`#${(state.livery.color ?? [150, 20, 24]).map((c) => c.toString(16).padStart(2, "0")).join("")}`}
               onChange={(e) => { const h = e.target.value; update({ livery: { mode: "vernice", color: [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number] } }); }} className="h-5 w-8" />
-          </label>
+          </span>
           {(["woodland", "deserto", "digitale", "invernale", "verde_nato"] as CamoKind[]).map((k) => (
             <button key={k} className={`rounded-full border px-3 py-1.5 ${state.livery.mode === "mimetica" && state.livery.camo === k ? "border-accent" : "border-line"}`} onClick={() => camo(k)}>Mimetica {k.replace("_", " ")}</button>
           ))}

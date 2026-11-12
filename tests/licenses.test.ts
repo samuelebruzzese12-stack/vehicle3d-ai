@@ -6,6 +6,7 @@ describe("licenze", () => {
     ["CC BY-SA 4.0", "cc-by-sa", "4.0"],
     ["CC BY 2.0", "cc-by", "2.0"],
     ["Public domain", "public-domain", undefined],
+    ["Pubblico dominio", "public-domain", undefined],
     ["CC0", "cc0", undefined],
     ["by-nc", "cc-by-nc", undefined],
     ["CC Attribution-NonCommercial-NoDerivs", "cc-by-nc-nd", undefined],

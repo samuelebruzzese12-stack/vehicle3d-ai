@@ -66,7 +66,7 @@ export function parseLicense(raw: string | null | undefined): LicenseInfo {
   if (!s) return licenseInfo("unknown");
   const ver = /(\d\.\d)/.exec(s)?.[1];
   if (/^(cc0|cc-?zero)|cc0|creative commons zero|publicdomainzero/.test(s)) return licenseInfo("cc0");
-  if (/public ?domain|^pd\b|pd-/.test(s)) return licenseInfo("public-domain");
+  if (/public ?domain|pubblico dominio|^pd\b|pd-/.test(s)) return licenseInfo("public-domain");
   const cc = /(?:cc|creative commons)[\s-]*(?:attribution|by)([\s-]*(?:non[\s-]?commercial|nc))?([\s-]*(?:share[\s-]?alike|sa))?([\s-]*(?:no[\s-]?deriv\w*|nd))?/.exec(s)
     ?? /^(?:by)(-nc)?(-sa)?(-nd)?$/.exec(s);
   if (cc) {

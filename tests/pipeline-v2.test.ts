@@ -101,3 +101,17 @@ describe("pipeline: motore D (riuso geometria Bedrock)", () => {
     expect(r.files.some((f) => f.kind === "credits")).toBe(true);
   });
 });
+
+describe("pipeline: texture reale sui sedili stimati", () => {
+  it("applica la texture con UV valide (GLB valido per Khronos) e la accredita", async () => {
+    const sharp = (await import("sharp")).default;
+    const jpg = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#555" } }).jpeg().toBuffer();
+    const r = await runPipeline(await syntheticCar({ rearAt: "-z" }), {
+      vehicle: car, quality: "STANDARD", source: "test",
+      seatTexture: { image: new Uint8Array(jpg), mime: "image/jpeg", credit: { title: "Texture tessuto", author: "Poly Haven", sourceName: "Poly Haven", license: parseLicense("CC0"), usage: "texture" } },
+    });
+    jobs.push(r.jobId);
+    expect((r.report as { verification: { glb: { ok: boolean } } }).verification.glb.ok).toBe(true);
+    expect((r.report as { licenses: { credits: Credit[] } }).licenses.credits.some((c) => c.title === "Texture tessuto")).toBe(true);
+  });
+});

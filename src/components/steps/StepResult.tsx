@@ -35,7 +35,7 @@ export function StepResult({ result, onRestart, onBack }: { result: PipelineResu
   };
   const d = r.normalization.dimensions;
   return (
-    <Section title="5. Risultato" subtitle={`Elaborato in ${(r.durationMs / 1000).toFixed(1)} s. Tutti i file sono stati verificati prima di essere resi disponibili.`}
+    <Section title="4. Risultato" subtitle={`Elaborato in ${(r.durationMs / 1000).toFixed(1)} s. Tutti i file sono stati verificati prima di essere resi disponibili.`}
       actions={<><button className="btn-ghost" onClick={onBack}>Indietro</button><button className="btn-ghost flex-1 sm:flex-none" onClick={onRestart}>Nuovo veicolo</button></>}>
       <div className="flex rounded-xl border border-line bg-panel-2 p-1 text-sm">
         <button className={`flex-1 rounded-lg py-2 ${tab === "glb" ? "bg-panel font-semibold" : "text-muted"}`} onClick={() => setTab("glb")}>Modello 3D</button>
@@ -52,7 +52,7 @@ export function StepResult({ result, onRestart, onBack }: { result: PipelineResu
       </div>
       {r.path && r.path.attempts.length > 0 && (
         <details className="card text-xs">
-          <summary className="cursor-pointer text-sm font-semibold">Percorso seguito ({r.path.attempts.length} passaggi)</summary>
+          <summary className="cursor-pointer text-sm font-semibold">Percorso seguito ({r.path.attempts.length} {r.path.attempts.length === 1 ? "passaggio" : "passaggi"})</summary>
           <ul className="mt-2 space-y-1">{r.path.attempts.map((a, i) => <li key={i} className={a.ok ? "text-accent" : "text-muted"}>{a.ok ? "✓" : "✗"} {a.label}: {a.message}</li>)}</ul>
         </details>
       )}

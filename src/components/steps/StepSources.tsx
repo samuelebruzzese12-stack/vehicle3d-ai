@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api, thumb } from "@/lib/client/api";
 import type { ModelCandidate, SourcesResult, WizardState } from "@/lib/client/state";
-import { parseLicense } from "@/lib/licenses";
+import { licenseInfo, parseLicense, type LicenseId } from "@/lib/licenses";
 import { VIEW_LABELS, type View } from "@/lib/types";
 import { LicenseBadge } from "../LicenseBadge";
 import { Alert, Badge, Section, Spinner } from "../ui";
@@ -19,7 +19,7 @@ export function StepSources({ state, update, onBack, onNext }: { state: WizardSt
     try {
       const r = await api<SourcesResult>("/api/sources", { method: "POST", json: { name: v.label, vehicle: state.vehicleInput, commonsCategory: v.commonsCategory, commercial: state.commercial } });
       // preselezione: fino a 4 foto con licenza che consente derivati
-      const ok = r.photos.filter((p) => parseLicense(p.license).policy.derivatives).slice(0, 4).map((p) => p.title);
+      const ok = r.photos.filter((p) => photoLicense(p).policy.derivatives).slice(0, 4).map((p) => p.title);
       update({ sources: r, aiImages: ok });
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
@@ -72,7 +72,7 @@ export function StepSources({ state, update, onBack, onNext }: { state: WizardSt
             <p className="text-xs text-muted">Tocca fino a 4 foto da usare come riferimento per la generazione AI (servono licenze che consentano opere derivate).</p>
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {s.photos.map((p) => {
-                const lic = parseLicense(p.license);
+                const lic = photoLicense(p);
                 const sel = state.aiImages.includes(p.title);
                 return (
                   <li key={p.id} className={`overflow-hidden rounded-xl border ${sel ? "border-accent" : "border-line"} bg-panel`}>
@@ -112,6 +112,11 @@ export function StepSources({ state, update, onBack, onNext }: { state: WizardSt
       )}
     </Section>
   );
+}
+
+/** Licenza della foto: identificativo normalizzato dal server (l'etichetta è solo per la lettura). */
+function photoLicense(p: { licenseId?: string; license?: string }) {
+  return p.licenseId ? licenseInfo(p.licenseId as LicenseId) : parseLicense(p.license);
 }
 
 function ModelList({ title, items, state, update, source }: { title: string; items: ModelCandidate[]; state: WizardState; update: (p: Partial<WizardState>) => void; source: (m: ModelCandidate) => "sketchfab" | "github" | "commons" }) {
