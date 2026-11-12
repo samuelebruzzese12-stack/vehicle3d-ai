@@ -1,106 +1,98 @@
 # Vehicle3D AI
 
-Da una fotografia di un veicolo (auto, camion, autobus, moto…) a un modello 3D con carrozzeria, componenti separati e abitacolo, esportato in **GLB**, **OBJ** e **MCADDON per Minecraft Bedrock (Android 1.21+)**.
+Dal **nome** o da una **foto** di un veicolo (auto, camion, autobus, carro armato…) a un modello 3D con carrozzeria, componenti separati e abitacolo, esportato in **GLB**, **OBJ** e **MCADDON per Minecraft Bedrock (Android 1.21+)**.
 
-Interfaccia in italiano, mobile-first, utilizzabile interamente da smartphone: l'app gira su Vercel e non serve un PC.
+Architettura **free-first**: nessun servizio a pagamento, nessun acquisto automatico di crediti. Fonti aperte, modelli AI open source, licenze verificate per ogni risorsa. Interfaccia in italiano, mobile-first, utilizzabile solo da smartphone (deploy su Vercel).
 
-## Flusso
+Dipendenze, requisiti GPU e licenze: **[docs/DIPENDENZE-GPU-LICENZE.md](docs/DIPENDENZE-GPU-LICENZE.md)**.
 
-1. **Foto** – scatto o galleria; ridimensionamento nel browser (max 1600 px) per restare nei limiti di Vercel.
-2. **Identificazione** – Claude (vision) stima marca, modello, anni, categoria, dimensioni reali e posti. I dati sono modificabili; senza chiave si inseriscono a mano.
-3. **Riferimenti** – ricerca automatica per vista (anteriore, posteriore, laterale, tre quarti, superiore, interni, plancia) su Wikimedia Commons (senza chiave, con licenza e autore), più Brave Image Search e Google CSE se configurati. Le immagini selezionate vengono **scaricate e decodificate dal server** (controllo tecnico) e, con la chiave Anthropic, verificate da Claude (stesso modello? quale vista? qualità?).
-4. **Generazione 3D** – provider intercambiabile: **Meshy Multi-Image to 3D** (fino a 4 viste) o **fal.ai Hunyuan3D v2 multi-view**. Il task è asincrono: lo stato viene salvato nel browser e si può chiudere la pagina.
-5. **Elaborazione** (server) – il modello viene scaricato **dal provider tramite l'ID del task** (mai da un URL fornito dal client), poi:
-   - normalizzazione: Y in alto, lunghezza su Z, scala reale (1 blocco Minecraft = 1 m), appoggio a terra;
-   - riconoscimento anteriore/posteriore dai fanali, con rotazione automatica (o scelta manuale);
-   - ottimizzazione mesh (dedup, weld, semplificazione meshoptimizer) e texture (max 2K);
-   - pulizia opzionale con **Blender** (worker esterno);
-   - segmentazione: ruote (con pivot sul mozzo), vetri (materiale trasparente), fari, fanali, porte;
-   - abitacolo: sedili, plancia e volante ricostruiti proceduralmente dalle proporzioni, con colori presi dalle foto degli interni;
-   - voxelizzazione a 1 pixel Minecraft, palette colori, greedy meshing in cubi Bedrock, un bone per componente, ruote animate;
-   - **verifica di ogni output** prima di renderlo scaricabile.
-6. **Risultato** – anteprima 3D interattiva del GLB (componenti attivabili), anteprima Minecraft ricostruita dalla geometria Bedrock, download e checklist dei controlli.
+## Come funziona
 
-## Stato delle funzioni (cosa è stato testato davvero)
+1. **Veicolo**
+   - *Nome*: Wikidata + Wikipedia identificano marca, modello, categoria, anni, dimensioni reali, massa, equipaggio, varianti.
+   - *Foto*: riconoscimento con **CLIP (MIT) nel browser** (la foto non lascia il telefono): categoria, marca e 5 modelli probabili presi da Wikidata. È una stima: l'utente conferma.
+2. **Fonti** – foto per vista da Wikimedia Commons (categoria ufficiale del veicolo), viste stimate con CLIP, texture CC0 da Poly Haven, modelli 3D (Sketchfab, Commons 3D, GitHub), addon Minecraft (GitHub). Per ogni risorsa: autore, fonte, licenza, utilizzabilità. Link di ricerca manuale per siti senza API (CGTrader, MCPEDL).
+3. **Costruzione** – motore automatico o manuale:
+   - **C** modello 3D esistente con licenza compatibile → **D** addon Minecraft esistente → **A** generazione AI open source (TRELLIS / TRELLIS.2, MIT). Se un motore fallisce si passa al successivo; ogni tentativo è mostrato.
+   - **B** Blender: FBX/BLEND/OBJ/STL/glTF → pulizia, separazione parti, texture baking.
+   - Livrea: originale, vernice, 5 mimetiche procedurali; texture reali CC0 sui sedili.
+4. **Risultato** – anteprima 3D (componenti attivabili) e Minecraft, **tabella delle parti: ricostruite dal sorgente / separate con euristica / stimate / non presenti**, licenze e crediti, download verificati.
 
-| Funzione | Stato |
-| --- | --- |
-| Interfaccia mobile (Pixel 7 emulato, Chromium) | ✅ testata end-to-end |
-| Ricerca immagini Wikimedia Commons | ✅ testata con richieste reali |
-| Download/validazione riferimenti e miniature via server | ✅ testata con richieste reali |
-| Pipeline GLB → GLB/OBJ/MCADDON + verifica | ✅ testata su modelli reali (Ferrari three.js compressa Draco, ToyCar Khronos) e su un veicolo sintetico (test automatici) |
-| Validatore glTF Khronos sui GLB prodotti | ✅ 0 errori |
-| Script Blender e worker | ✅ testati con `bpy` 5.3 |
-| Identificazione e verifica con Claude | ⚠️ codice completo, **non eseguito** (nessuna chiave Anthropic disponibile durante lo sviluppo) |
-| Generazione Meshy | ⚠️ endpoint verificati (rispondono), **generazione non eseguita**: la chiave fornita è stata rifiutata (401) |
-| Generazione fal.ai | ⚠️ codice completo, **non eseguito** (nessuna chiave) |
-| Brave / Google CSE | ⚠️ codice completo, non eseguito (nessuna chiave) |
-| Caricamento in Minecraft Bedrock | ⚠️ struttura del pacchetto verificata automaticamente (JSON, UUID, dipendenze, geometria, texture, render controller, animazioni); **non provato in gioco** |
+Regole che il codice rispetta:
+- gli interni non sono mai dichiarati completi; motore e componenti non documentati non vengono inventati;
+- licenze sconosciute, ND, NC (se uso commerciale), share-alike incompatibili → **esportazione bloccata**;
+- le licenze dei candidati scelti dal client sono **riverificate dal server alla fonte**;
+- crediti in `CREDITS.txt` (MCADDON e ZIP OBJ), nei metadati del GLB e nei manifest Bedrock;
+- nessun file è scaricabile se non supera la verifica (validatore glTF Khronos, controlli OBJ e MCADDON).
 
-### Limiti noti
+## Risultati dei test (eseguiti realmente il 12/11/2026)
 
-- I generatori image-to-3D producono il guscio esterno: l'abitacolo è una **stima procedurale**, non una ricostruzione fotografica.
-- La separazione dei componenti è **euristica** (geometria + colore): funziona bene sulle ruote, è approssimativa su porte e fari.
-- In Minecraft il veicolo è fatto di cubi: alla qualità ULTRA un'auto produce ~6.000 cubi. Su telefoni economici possono servire impostazioni più leggere (ALTA/STANDARD); oltre 7.000 cubi la risoluzione si adatta automaticamente.
-- Su Vercel il caricamento diretto di un GLB proprio (“Converti GLB”) è limitato a ~4,5 MB per richiesta.
+### Test richiesti
+
+| # | Test | Esito | Dettagli |
+| --- | --- | --- | --- |
+| 1 | Ricerca per nome **T-90** | ✅ superato (live) | Q192757, carro armato, Uralvagonzavod, dal 1991, 9,53 × 3,78 × 2,22 m, 46,5 t, categoria Commons "T-90 tanks", sintesi Wikipedia IT/EN |
+| 2 | Ricerca per nome **Alfa Romeo 159** | ✅ superato (live) | Q1610, marca "Alfa Romeo" (proprietà brand), modello "159", 4,661 × 1,83 × 1,417 m, anni 2005–2011 ricavati dal testo Wikipedia (Wikidata non li ha) |
+| 3 | Fotografie e texture | ⚠️ parziale (live) | ✅ 40 foto con licenza da "T-90 tanks" e "Alfa Romeo 159" (licenze riconosciute per >80%); ✅ texture CC0 per 5 slot, download e decodifica reali. ❌ un download da `upload.wikimedia.org` respinto: limite sull'IP condiviso del container (`Retry-After: 600`) |
+| 4 | Recupero di un modello 3D esistente | ⚠️ parziale (live) | ✅ ricerca su 3 fonti e scarto dei modelli non pertinenti (per T-90 Commons propone Merkava/Leopard: correttamente esclusi). ❌ download non verificato in questo ambiente: token Sketchfab fornito non valido (401) e `upload.wikimedia.org` limitato. Import dei formati, blocco licenze e riverifica coperti dai test offline |
+| 5 | Generazione AI senza provider a pagamento | ⚠️ non completato (live) | ✅ cascata TRELLIS.2 → TRELLIS eseguita realmente, Hunyuan3D escluso per licenza UE. ❌ entrambi gli Spaces gratuiti hanno risposto "quota ZeroGPU esaurita". Il worker locale TripoSR (MIT, CPU) è pronto ma la sua esecuzione in questo ambiente non è stata autorizzata |
+| 6 | Elaborazione Blender | ✅ superato (live, bpy 5.3) | pulizia, separazione in 10 parti, texture baking (corretto un bug: i materiali metallici venivano cotti neri), conversione STL/FBX |
+| 7 | Conversione Bedrock | ✅ superato | auto e carro armato: bone e genitori validi (cannone figlio della torretta), pivot, UV entro la texture, ≤ 7000 cubi |
+| 8 | Esportazione e validazione MCADDON | ✅ superato | 16/16 controlli: JSON, RP+BP, UUID, dipendenze, motore ≥ 1.21, texture, render controller coerente, animazioni su bone esistenti, posti guidabili, lingue IT/EN |
+
+### Altre verifiche
+
+- 35 test offline (`npm test`): licenze, formati (MCADDON→glTF, OBJ, glTF zip, STL), pipeline, cingolati, livrea, riuso Bedrock, crediti, blocchi licenza.
+- E2E su smartphone emulato (Pixel 7): nome → fonti reali → costruzione → risultato; percorso automatico T-90 con tentativi mostrati all'utente.
+- Non verificato: caricamento del pacchetto dentro Minecraft (verificata solo la struttura); qualità della generazione AI su veicoli reali (nessuna generazione completata qui).
 
 ## Deploy su Vercel (solo smartphone)
 
-1. Apri [vercel.com](https://vercel.com) dal browser del telefono, accedi con GitHub e scegli **Add New → Project** → importa questo repository.
-2. In **Storage** crea un **Blob Store** e collegalo al progetto (imposta da solo `BLOB_READ_WRITE_TOKEN`). È obbligatorio su Vercel: i file generati vengono salvati lì.
-3. In **Settings → Environment Variables** aggiungi le chiavi (vedi `.env.example`):
-   - `ANTHROPIC_API_KEY` – identificazione e verifica riferimenti;
-   - `MESHY_API_KEY` e/o `FAL_KEY` – generazione 3D;
-   - `APP_ACCESS_CODE` – **consigliato**: senza, chiunque abbia il link può consumare i tuoi crediti. Il codice si inserisce in *Impostazioni* nell'app.
-4. **Deploy**. Le funzioni di elaborazione usano fino a 300 s (`maxDuration`), compatibile con il piano Hobby con Fluid Compute.
-5. Apri l'URL del progetto dal telefono (puoi aggiungerlo alla schermata Home).
+1. Su [vercel.com](https://vercel.com) → **Add New → Project** → importa questo repository.
+2. **Storage → Blob Store** collegato al progetto (piano gratuito): imposta `BLOB_READ_WRITE_TOKEN`.
+3. **Environment Variables** (tutte gratuite e opzionali, vedi `.env.example`):
+   - `APP_ACCESS_CODE` consigliato su un link pubblico;
+   - `SKETCHFAB_API_TOKEN` (account Sketchfab gratuito → Settings → Password & API) per scaricare modelli CC;
+   - `HF_TOKEN` (account Hugging Face gratuito, permesso *read*) per la quota GPU degli Spaces;
+   - `GITHUB_TOKEN` (facoltativo) per limiti di ricerca più alti.
+4. **Deploy**. Funzioni fino a 300 s (piano Hobby con Fluid Compute).
 
-### Installazione del pacchetto in Minecraft (Android)
+Limiti dei servizi gratuiti da conoscere: Wikimedia limita gli IP cloud condivisi; gli Spaces ZeroGPU hanno code e quota giornaliera; GitHub senza token consente 10 ricerche al minuto. L'app mostra sempre quale limite è stato raggiunto e quanto attendere.
 
-Scarica il `.mcaddon`, aprilo e scegli Minecraft: Resource Pack e Behavior Pack vengono importati. Attivali entrambi nel mondo, poi usa l'uovo generatore o `/summon vehicle3d:<id>` (l'id è nel risultato). Tocca il veicolo per salire; il primo posto guida.
-
-## Worker Blender (opzionale)
-
-Vercel non può eseguire Blender. Se vuoi la pulizia mesh con Blender, pubblica `blender/` come container (Render, Fly.io, Cloud Run…):
+## Worker opzionali (fuori da Vercel)
 
 ```
-docker build -t vehicle3d-blender blender/
-docker run -e BLENDER_WORKER_TOKEN=un-segreto -p 8080:8080 vehicle3d-blender
+# Blender (motore B): pulizia, baking, FBX/BLEND
+docker build -t vehicle3d-blender blender/ && docker run -e BLENDER_WORKER_TOKEN=segreto -p 8080:8080 vehicle3d-blender
+# AI open source (motore A, TripoSR su CPU o GPU)
+docker build -t vehicle3d-ai ai-worker/ && docker run -e AI_WORKER_TOKEN=segreto -p 8081:8081 vehicle3d-ai
 ```
 
-poi imposta `BLENDER_WORKER_URL` e `BLENDER_WORKER_TOKEN` su Vercel. Se il worker non risponde, la pipeline prosegue senza ed è indicato nel report. Lo script si può usare anche a mano: `blender -b -P blender/process_vehicle.py -- in.glb out.glb --target-tris 300000`.
+Poi imposta `BLENDER_WORKER_URL`/`BLENDER_WORKER_TOKEN` e `AI_WORKER_URL`/`AI_WORKER_TOKEN`.
 
 ## Sviluppo
 
 ```
 npm install
-cp .env.example .env.local   # compila le chiavi
 npm run dev
-npm test          # test della pipeline (nessuna rete necessaria)
+npm test            # 35 test offline
+npm run test:live   # test con servizi reali (rete); il test 6 richiede BLENDER_WORKER_URL, il 5 TEST_PHOTO
 npm run typecheck && npm run lint && npm run build
 ```
 
-La CI GitHub Actions esegue typecheck, lint, test, build e lo script Blender a ogni push.
-
-### Architettura
+### Struttura
 
 ```
-src/app/api/            route server-side (le chiavi non arrivano mai al browser)
-  identify              Claude vision → marca/modello/anno/dimensioni
-  references/search     Wikimedia + Brave + Google, query per vista
-  references/verify     download reale + classificazione AI delle viste
-  generate, generate/[taskId]   creazione e stato del task del provider
-  process               download dal provider → pipeline → verifica → storage
-  convert               pipeline su un GLB caricato
-  thumb                 miniature servite dal server
-src/lib/providers/      interfaccia ModelProvider + Meshy + fal.ai
-src/lib/mesh/           IO glTF, normalizzazione, segmentazione, abitacolo, OBJ, Blender
-src/lib/minecraft/      voxelizzazione, palette, greedy meshing, Resource/Behavior Pack, MCADDON
-src/lib/verify.ts       verifiche GLB (validatore Khronos), OBJ, MCADDON
-blender/                script Blender, worker HTTP, Dockerfile
-scripts/render-geo.mts  rendering di controllo di una geometria Bedrock (lato/fronte/alto)
+src/lib/sources/      Wikidata/Wikipedia, Commons (foto e 3D), Poly Haven, Sketchfab, GitHub, client HTTP con limiti
+src/lib/engines/      orchestratore (C → D → A), acquisizione e riverifica, generazione AI, tabella modelli e licenze
+src/lib/formats/      import GLB, glTF zip, OBJ/MTL, STL, FBX/BLEND (via Blender), MCADDON/MCPACK
+src/lib/mesh/         normalizzazione, ottimizzazione, segmentazione (ruote / cingoli, torretta, cannone), abitacolo stimato
+src/lib/materials/    preset PBR, livrea, mimetiche procedurali
+src/lib/minecraft/    voxelizzazione, greedy meshing, geometria Bedrock, RP/BP, riuso addon, Bedrock → glTF
+src/lib/licenses.ts   normalizzazione licenze, politica d'uso, crediti
+src/lib/vision/       CLIP nel browser (riconoscimento foto e viste)
+blender/              script e worker Blender
+ai-worker/            worker TripoSR self-hosted
 ```
-
-Sicurezza: validazione degli input con zod, protezione SSRF sui download (solo https, niente IP privati, limiti di dimensione e timeout), host dei modelli in allowlist per provider, rate limit per IP, codice di accesso opzionale per le operazioni a pagamento, nessun file reso scaricabile se non supera la verifica.
 
 Minecraft è un marchio di Mojang Studios/Microsoft; questo progetto non è affiliato.
